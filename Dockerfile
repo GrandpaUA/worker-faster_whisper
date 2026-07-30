@@ -1,11 +1,15 @@
-FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1
+FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
 
-# System deps for audio
+ENV DEBIAN_FRONTEND=noninteractive
+
+# System deps: Python 3.10 + ffmpeg for audio
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ffmpeg && \
+    apt-get install -y --no-install-recommends \
+        python3 python3-pip python3-venv ffmpeg && \
+    ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
 
-# Python deps (faster-whisper only - PyTorch + runpod SDK already in base)
+# Python deps (faster-whisper + runpod SDK)
 COPY builder/requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 
