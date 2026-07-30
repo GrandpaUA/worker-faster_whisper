@@ -1,4 +1,4 @@
-FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1-cudnn-devel-ubuntu22.04
+FROM runpod/pytorch:2.8.0-py3.11-cuda12.8.1
 
 # System deps for audio
 RUN apt-get update && \
@@ -7,7 +7,7 @@ RUN apt-get update && \
 
 # Python deps (faster-whisper only - PyTorch + runpod SDK already in base)
 COPY builder/requirements.txt /requirements.txt
-RUN uv pip install --no-cache-dir --system -r /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
 
 # Pre-fetch Whisper models into image
 COPY builder/fetch_models.py /fetch_models.py
