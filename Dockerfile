@@ -1,19 +1,17 @@
-FROM nvidia/cuda:12.3.2-cudnn9-runtime-ubuntu22.04
+FROM runpod/base:1.1.0-ubuntu2204
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# System deps: Python 3.10 + ffmpeg for audio
+# System deps: ffmpeg for audio processing
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-        python3 python3-pip ffmpeg && \
-    ln -s /usr/bin/python3 /usr/bin/python && \
+    apt-get install -y --no-install-recommends ffmpeg && \
     rm -rf /var/lib/apt/lists/*
 
 # Python deps (faster-whisper + runpod SDK)
 COPY builder/requirements.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 
-# Pre-fetch Whisper models into image
+# Pre-fetch Whisper model into image
 COPY builder/fetch_models.py /fetch_models.py
 RUN python /fetch_models.py && rm /fetch_models.py
 
