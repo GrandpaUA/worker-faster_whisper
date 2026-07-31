@@ -5,7 +5,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # System deps: Python 3.10 + ffmpeg for audio
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        python3 python3-pip python3-venv ffmpeg && \
+        python3 python3-pip ffmpeg && \
     ln -s /usr/bin/python3 /usr/bin/python && \
     rm -rf /var/lib/apt/lists/*
 
@@ -20,4 +20,4 @@ RUN python /fetch_models.py && rm /fetch_models.py
 # Handler code
 COPY src/ /
 
-CMD python -u /rp_handler.py
+CMD ["python", "-u", "/rp_handler.py"]
