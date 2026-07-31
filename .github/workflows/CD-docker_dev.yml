@@ -1,1 +1,8 @@
-# Disabled — upstream workflow, not needed for this fork
+name: disabled
+on:
+  workflow_dispatch:
+jobs:
+  noop:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "upstream workflow disabled in this fork"
