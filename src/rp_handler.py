@@ -112,3 +112,4 @@ print("🌐 Starting runpod.serverless...", flush=True)
 runpod.serverless.start({"handler": run_whisper_job})
 print("✅ runpod.serverless started — worker ready!", flush=True)
   
+# GHCR build trigger  
