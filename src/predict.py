@@ -119,7 +119,7 @@ class Predictor:
                 )
 
         # Model is now loaded and ready, proceed with prediction (outside the lock?)
-        # Consider if transcribe is thread-safe or if it should also be within the lock
+        # Consider if transcribe is thread-safe or it should also be within the lock
         # For now, keeping transcribe outside as it's CPU/GPU bound work
 
         if temperature_increment_on_fallback is not None:
@@ -128,6 +128,9 @@ class Predictor:
             )
         else:
             temperature = [temperature]
+
+        # VAD parameters matching local Whisper config
+        vad_params = dict(min_silence_duration_ms=500) if enable_vad else None
 
         # Note: FasterWhisper's transcribe might release the GIL, potentially allowing
         # other threads to acquire the model_lock if transcribe is lengthy.
@@ -154,6 +157,7 @@ class Predictor:
                 max_initial_timestamp=1.0,
                 word_timestamps=word_timestamps,
                 vad_filter=enable_vad,
+                vad_parameters=vad_params,
             )
         )
 
