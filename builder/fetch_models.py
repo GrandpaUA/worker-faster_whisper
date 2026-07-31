@@ -1,16 +1,10 @@
 from faster_whisper.utils import download_model
 
+# Only download the model(s) actually used by the backend.
+# Default: RUNPOD_WHISPER_MODEL=small (see subtitles.py)
+# Add more only if needed — each model adds GBs to the image.
 model_names = [
-    "tiny",
-    "base",
     "small",
-    "medium",
-    "large-v1",
-    "large-v2",
-    "large-v3",
-    "distil-large-v2",
-    "distil-large-v3",
-    "turbo",
 ]
 
 
