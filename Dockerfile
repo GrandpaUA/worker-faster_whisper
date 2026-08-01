@@ -1,19 +1,33 @@
+# syntax=docker/dockerfile:1
+
+# ---- Stage 1: збірка Python-залежностей (компілятори лишаються тут) ----
+FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04 AS builder
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-venv python3-dev gcc g++ ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python3 -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
+
+COPY builder/requirements.txt /requirements.txt
+RUN pip install --no-cache-dir -r /requirements.txt
+
+# ---- Stage 2: чистий runtime ----
 FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Python 3.10 + system deps + build tools for C extensions
+# python3 — для venv; ffmpeg НЕ потрібен (faster-whisper декодує через PyAV)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 python3-pip python3-dev ffmpeg wget ca-certificates \
-    gcc g++ && \
-    ln -sf /usr/bin/python3 /usr/bin/python && \
-    pip install --upgrade pip && \
+    python3 ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Python deps (faster-whisper + runpod SDK)
-COPY builder/requirements.txt /requirements.txt
-RUN pip install --no-cache-dir -r /requirements.txt
+COPY --from=builder /opt/venv /opt/venv
 
 # Pre-fetch Whisper model into image
 COPY builder/fetch_models.py /fetch_models.py
