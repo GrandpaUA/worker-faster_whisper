@@ -143,10 +143,12 @@ def run_demucs_job(job):
     outdir = tempfile.mkdtemp()
 
     # --two-stems vocals → лише vocals.mp3 + no_vocals.mp3 (сума решти stem'ів).
+    # --mp3-bitrate 64: stems ~8МБ base64 кожен — обидва пролізають у ліміт
+    # відповіді RunPod (~20МБ); 320k (дефолт) дає ~74МБ і output занулюється.
     # GPU підхоплюється автоматично, якщо torch бачить CUDA.
     cmd = [
         sys.executable, '-m', 'demucs',
-        '--mp3', '--two-stems', 'vocals',
+        '--mp3', '--mp3-bitrate', '64', '--two-stems', 'vocals',
         '-n', model, '-o', outdir, audio_input,
     ]
 
