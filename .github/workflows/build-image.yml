@@ -3,6 +3,7 @@ name: Build & Push Docker Image
 on:
   push:
     branches: [main]
+    tags: ['v*']
     paths:
       - 'Dockerfile'
       - 'builder/**'
@@ -26,13 +27,21 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: drgrandpa/whisper-worker
+          tags: |
+            type=raw,value=latest
+            type=sha,prefix=sha-,format=short
+            type=semver,pattern={{version}}
+
       - name: Build and push
         uses: docker/build-push-action@v5
         with:
           context: .
           push: true
-          tags: |
-            drgrandpa/whisper-worker:latest
-            drgrandpa/whisper-worker:${{ github.sha }}
+          tags: ${{ steps.meta.outputs.tags }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
