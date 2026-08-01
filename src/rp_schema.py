@@ -104,4 +104,14 @@ INPUT_VALIDATIONS = {
         'required': False,
         'default': False
     },
+    'task': {
+        'type': str,
+        'required': False,
+        'default': 'transcribe'
+    },
+    'demucs_model': {
+        'type': str,
+        'required': False,
+        'default': 'htdemucs_ft'
+    },
 }

@@ -22,9 +22,10 @@ ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONUNBUFFERED=1
 ENV PATH="/opt/venv/bin:$PATH"
 
-# python3 — для venv; ffmpeg НЕ потрібен (faster-whisper декодує через PyAV)
+# python3 — для venv; ffmpeg + libsndfile1 — для декодування входу demucs
+# (faster-whisper декодує через PyAV, але demucs читає mp3 через ffmpeg/soundfile)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 ca-certificates && \
+    python3 ca-certificates ffmpeg libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv

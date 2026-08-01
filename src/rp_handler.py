@@ -11,7 +11,9 @@ print("=" * 50, flush=True)
 
 print("📦 Importing base64, tempfile...", flush=True)
 import base64
+import subprocess
 import tempfile
+import time
 print("   ✅ base64, tempfile OK", flush=True)
 
 print("📦 Importing rp_schema...", flush=True)
@@ -108,8 +110,86 @@ def run_whisper_job(job):
     return whisper_results
 
 
+@rp_debugger.FunctionTimer
+def run_demucs_job(job):
+    job_input = job['input']
+
+    input_validation = validate(job_input, INPUT_VALIDATIONS)
+    if 'errors' in input_validation:
+        return {"error": input_validation['errors']}
+    job_input = input_validation['validated_input']
+
+    if not job_input.get('audio', False) and not job_input.get('audio_base64', False):
+        return {'error': 'Must provide either audio or audio_base64'}
+
+    if job_input.get('audio', False) and job_input.get('audio_base64', False):
+        return {'error': 'Must provide either audio or audio_base64, not both'}
+
+    if job_input.get('audio', False):
+        audio_input = download_files_from_urls(job['id'], [job_input['audio']])[0]
+    else:
+        audio_input = base64_to_tempfile(job_input['audio_base64'])
+
+    model = job_input.get('demucs_model', 'htdemucs_ft')
+
+    try:
+        import torch
+        cuda_available = torch.cuda.is_available()
+    except Exception:
+        cuda_available = False
+
+    outdir = tempfile.mkdtemp()
+
+    # --two-stems vocals → лише vocals.mp3 + no_vocals.mp3 (сума решти stem'ів).
+    # GPU підхоплюється автоматично, якщо torch бачить CUDA.
+    cmd = [
+        sys.executable, '-m', 'demucs',
+        '--mp3', '--two-stems', 'vocals',
+        '-n', model, '-o', outdir, audio_input,
+    ]
+
+    t0 = time.time()
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    separation_sec = round(time.time() - t0, 2)
+
+    if proc.returncode != 0:
+        return {
+            'error': f'demucs failed (exit {proc.returncode})',
+            'separation_sec': separation_sec,
+            'model': model,
+            'cuda_available': cuda_available,
+            'stderr': (proc.stderr or '')[-4000:],
+        }
+
+    stem_name = os.path.splitext(os.path.basename(audio_input))[0]
+    stem_dir = os.path.join(outdir, model, stem_name)
+
+    result = {
+        'separation_sec': separation_sec,
+        'model': model,
+        'cuda_available': cuda_available,
+    }
+    for stem in ('no_vocals', 'vocals'):
+        path = os.path.join(stem_dir, f'{stem}.mp3')
+        if os.path.exists(path):
+            with open(path, 'rb') as f:
+                result[f'{stem}_base64'] = base64.b64encode(f.read()).decode()
+            result[f'{stem}_bytes'] = os.path.getsize(path)
+        else:
+            result[f'{stem}_error'] = f'missing {path}'
+
+    return result
+
+
+def handler(job):
+    task = (job.get('input') or {}).get('task', 'transcribe')
+    if task == 'separate':
+        return run_demucs_job(job)
+    return run_whisper_job(job)
+
+
 print("🌐 Starting runpod.serverless...", flush=True)
-runpod.serverless.start({"handler": run_whisper_job})
+runpod.serverless.start({"handler": handler})
 print("✅ runpod.serverless started — worker ready!", flush=True)
-  
-# GHCR build trigger  
+
+# GHCR build trigger

@@ -21,4 +21,18 @@ def download_model_weights(selected_model):
 for model_name in model_names:
     download_model_weights(model_name)
 
+
+def download_demucs_weights(selected_model):
+    """
+    Download Demucs model weights (cached in the image so cold start is fast).
+    """
+    print(f"Downloading demucs {selected_model}...")
+    from demucs.pretrained import get_model
+    get_model(selected_model)
+    print(f"Finished downloading demucs {selected_model}.")
+
+
+# Pre-fetch Demucs htdemucs_ft weights used by the separation task.
+download_demucs_weights("htdemucs_ft")
+
 print("Finished downloading all models.")
