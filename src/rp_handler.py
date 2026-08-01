@@ -135,8 +135,10 @@ def run_demucs_job(job):
     try:
         import torch
         cuda_available = torch.cuda.is_available()
+        gpu_name = torch.cuda.get_device_name(0) if cuda_available else None
     except Exception:
         cuda_available = False
+        gpu_name = None
 
     outdir = tempfile.mkdtemp()
 
@@ -168,13 +170,18 @@ def run_demucs_job(job):
         'separation_sec': separation_sec,
         'model': model,
         'cuda_available': cuda_available,
+        'gpu_name': gpu_name,
     }
+    # return_stems=False → лише метадані (розміри, час, GPU). Повні base64 stem'и
+    # перевищують ліміт відповіді RunPod (~20 МБ) і output занулюється.
+    return_stems = job_input.get('return_stems', True)
     for stem in ('no_vocals', 'vocals'):
         path = os.path.join(stem_dir, f'{stem}.mp3')
         if os.path.exists(path):
-            with open(path, 'rb') as f:
-                result[f'{stem}_base64'] = base64.b64encode(f.read()).decode()
             result[f'{stem}_bytes'] = os.path.getsize(path)
+            if return_stems:
+                with open(path, 'rb') as f:
+                    result[f'{stem}_base64'] = base64.b64encode(f.read()).decode()
         else:
             result[f'{stem}_error'] = f'missing {path}'
 

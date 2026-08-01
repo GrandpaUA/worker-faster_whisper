@@ -114,4 +114,9 @@ INPUT_VALIDATIONS = {
         'required': False,
         'default': 'htdemucs_ft'
     },
+    'return_stems': {
+        'type': bool,
+        'required': False,
+        'default': True
+    },
 }
