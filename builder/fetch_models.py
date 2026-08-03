@@ -35,4 +35,20 @@ def download_demucs_weights(selected_model):
 # Pre-fetch Demucs htdemucs_ft weights used by the separation task.
 download_demucs_weights("htdemucs_ft")
 
+
+def download_roformer_weights(selected_model):
+    """
+    Download audio-separator (BS-Roformer) weights into the image so cold
+    start doesn't pull ~600MB. model_file_dir must match ROFORMER_MODEL_DIR
+    in rp_handler.py (/tmp/audio-separator-models/).
+    """
+    print(f"Downloading audio-separator model {selected_model}...")
+    from audio_separator.separator import Separator
+    Separator(model_file_dir="/tmp/audio-separator-models/").load_model(model_filename=selected_model)
+    print(f"Finished downloading audio-separator model {selected_model}.")
+
+
+# Pre-fetch the default engine='roformer' model (vocals + instrumental).
+download_roformer_weights("model_bs_roformer_ep_317_sdr_12.9755.ckpt")
+
 print("Finished downloading all models.")

@@ -86,3 +86,39 @@ producing an output like this:
   "translation_time": 0.3796223163604736
 }
 ```
+
+## Source separation (`task: "separate"`)
+
+GPU separation of a song into vocals and instrumental. Besides Demucs
+(`engine: "demucs"`, default, `htdemucs_ft`), the worker supports
+`engine: "roformer"` — [audio-separator](https://github.com/nomadkaraoke/python-audio-separator)
+running a BS-Roformer model. Default roformer model is
+`model_bs_roformer_ep_317_sdr_12.9755.ckpt` (top vocals+instrumental SDR,
+pre-fetched into the image); any other model filename from the
+audio-separator registry can be passed via `roformer_model`.
+
+| Input            | Type     | Description                                                              |
+| ---------------- | -------- | ------------------------------------------------------------------------ |
+| `task`           | str      | `"separate"` instead of transcription. Default: `"transcribe"`            |
+| `audio`          | Path     | URL to audio file (exactly one of `audio` / `audio_base64`)               |
+| `audio_base64`   | str      | Base64-encoded audio file                                                 |
+| `engine`         | str      | `"demucs"` (default) or `"roformer"`                                      |
+| `demucs_model`   | str      | Demucs model name. Default: `"htdemucs_ft"`                               |
+| `roformer_model` | str      | audio-separator model file. Default: `"model_bs_roformer_ep_317_sdr_12.9755.ckpt"` |
+| `return_stems`   | bool     | `false` returns metadata only — full base64 stems can exceed RunPod's ~20MB response limit. Default: `true` |
+
+Both engines return the same contract: `{separation_sec, model, cuda_available,
+gpu_name, vocals_base64/no_vocals_base64}` (or `*_bytes` sizes when
+`return_stems` is false). The roformer branch additionally reports
+`engine: "roformer"`, `torch_device` and `onnx_execution_provider` so GPU
+usage can be verified, and returns `{error, stderr}` on failure.
+
+```json
+{
+  "input": {
+    "task": "separate",
+    "engine": "roformer",
+    "audio_base64": "<base64 wav/mp3>"
+  }
+}
+```

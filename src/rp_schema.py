@@ -119,4 +119,14 @@ INPUT_VALIDATIONS = {
         'required': False,
         'default': True
     },
+    'engine': {
+        'type': str,
+        'required': False,
+        'default': 'demucs'
+    },
+    'roformer_model': {
+        'type': str,
+        'required': False,
+        'default': 'model_bs_roformer_ep_317_sdr_12.9755.ckpt'
+    },
 }

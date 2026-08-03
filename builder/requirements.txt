@@ -8,3 +8,9 @@ faster-whisper==1.2.1
 torch
 torchaudio
 demucs
+
+# Roformer separation (nomadkaraoke/python-audio-separator). [gpu] додає
+# onnxruntime-gpu (CUDA-ліби бере з базового nvidia/cuda образу), torch уже
+# стоїть вище з cu126. Пін версії: реєстр моделей і API пакета змінюються
+# між релізами.
+audio-separator[gpu]==0.44.5
