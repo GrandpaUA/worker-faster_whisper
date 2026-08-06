@@ -7,6 +7,7 @@
 import glob
 import os
 import re
+import shutil
 import unicodedata
 
 import torch
@@ -26,12 +27,22 @@ def fetch_tts_model():
 
 def fetch_voices():
     print(f"⬇️ Downloading voices from space {SPACE_REPO}...", flush=True)
+    raw_dir = "/voices_raw"
     snapshot_download(
         SPACE_REPO,
         repo_type="space",
         allow_patterns=["voices/*.pt"],
-        local_dir=VOICES_DIR,
+        local_dir=raw_dir,
     )
+    # local_dir зберігає структуру репо (voices/*.pt → raw/voices/*.pt) —
+    # флетенимо у /voices, звідки їх читає handler.
+    src = sorted(glob.glob(os.path.join(raw_dir, "voices", "*.pt")))
+    if not src:
+        src = sorted(glob.glob(os.path.join(raw_dir, "**", "*.pt"), recursive=True))
+    os.makedirs(VOICES_DIR, exist_ok=True)
+    for path in src:
+        shutil.move(path, os.path.join(VOICES_DIR, os.path.basename(path)))
+    shutil.rmtree(raw_dir, ignore_errors=True)
     voices = sorted(glob.glob(os.path.join(VOICES_DIR, "*.pt")))
     names = [os.path.basename(v)[:-3] for v in voices]
     print(f"✅ {len(voices)} voices: {names}", flush=True)
