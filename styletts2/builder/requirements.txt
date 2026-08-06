@@ -1,0 +1,29 @@
+# RunPod serverless SDK (версія як у whisper-worker)
+runpod~=1.9.0
+
+# PyTorch 2.8.0 cu126 — точні піни з requirements HF space patriotyk/styletts2-ukrainian,
+# який працює; cu126 індекс гарантує CUDA-сумісні колеса під базу nvidia/cuda 12.6.
+--extra-index-url https://download.pytorch.org/whl/cu126
+torch==2.8.0
+torchaudio==2.8.0
+
+# Оточення styletts2-inference + verbalizer'а (зі space requirements)
+transformers==5.0.0
+numpy<2
+accelerate>=0.26.0
+SoundFile
+librosa
+scipy
+einops
+einops_exts
+munch
+pyyaml
+huggingface_hub
+ctranslate2
+sentencepiece
+
+# Український TTS-ланцюжок: stress → phonemizer → модель (git-піни як у space).
+# styletts2-inference — пін на комміт, який використовує HF space.
+git+https://github.com/patriotyk/ukrainian-word-stress.git
+git+https://github.com/patriotyk/ipa-uk.git
+git+https://github.com/patriotyk/styletts2-inference.git@209352700cf703a05ff94501290095dd9072fd5f
