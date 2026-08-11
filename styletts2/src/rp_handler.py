@@ -1,6 +1,10 @@
 """RunPod serverless handler: StyleTTS2 Ukrainian TTS.
 
-Модель: patriotyk/styletts2_ukrainian_multispeaker_istftnet (24 kHz native).
+Модель: patriotyk/styletts2_ukrainian_multispeaker_hifigan (24 kHz native).
+ВАЖЛИВО: саме hifigan — HF space patriotyk/styletts2-ukrainian ганяє її
+('.../multispeaker' → redirect на _hifigan), і всі 31 голосів зі space
+зняті під неї. istftnet-варіант з цими голосами = деградація тембру
+(аудит 11.08.2026).
 Ланцюжок — дзеркало HF space patriotyk/styletts2-ukrainian:
 verbalizer (цифри) → stressify (stanza) → ipa-uk → StyleTTS2.
 
@@ -29,7 +33,7 @@ print("=" * 50, flush=True)
 import torch
 import torchaudio
 
-MODEL_REPO = "patriotyk/styletts2_ukrainian_multispeaker_istftnet"
+MODEL_REPO = "patriotyk/styletts2_ukrainian_multispeaker_hifigan"
 VOICES_DIR = "/voices"
 SR_NATIVE = 24000
 SR_OUT = 22050
@@ -134,9 +138,11 @@ def synthesize(text, voice_name):
     """text → waveform tensor (24 kHz, float)."""
     style = VOICES[voice_name].to(DEVICE)
 
-    # Без verbalizer'а модель не читає цифри (README ALERTua API), тому для
-    # тексту з цифрами проганяємо його; чистий текст не чіпаємо.
-    if any(ch.isdigit() for ch in text):
+    # Без verbalizer'а модель не читає цифри й акроніми (README space).
+    # Тригер: цифри АБО латиниця (NASA, GPU, C++) — сира латиниця в ipa_uk
+    # дає сміття (аудит 11.08.2026: раніше було лише isdigit → акроніми
+    # без цифр пролітали повз вербалізатор).
+    if re.search(r'[0-9A-Za-z]', text):
         text = verbalize(text)
 
     wavs = []

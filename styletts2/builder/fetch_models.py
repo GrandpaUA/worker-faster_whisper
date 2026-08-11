@@ -13,7 +13,7 @@ import unicodedata
 import torch
 from huggingface_hub import snapshot_download
 
-MODEL_REPO = "patriotyk/styletts2_ukrainian_multispeaker_istftnet"
+MODEL_REPO = "patriotyk/styletts2_ukrainian_multispeaker_hifigan"
 SPACE_REPO = "patriotyk/styletts2-ukrainian"
 VOICES_DIR = "/voices"
 SANITY_VOICE = "Марина Панас"
