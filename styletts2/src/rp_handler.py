@@ -13,8 +13,10 @@ verbalizer (цифри) → stressify (stanza) → ipa-uk → StyleTTS2.
   output: {"audio_base64": "<wav 22050 Hz mono 16-bit>", "duration_sec": float,
            "rtf": float, "voice": str, "gpu_name": str, ...}
   input (chunk):  {"texts": ["...", ...], "voice": "<optional>"} —
-    items склеюються в один WAV; між items prosody chaining (s_prev = стиль,
-    знятий extract_voice_features з аудіо попереднього item'а); тиша по краях
+    items склеюються в один WAV; між items prosody chaining: акустична
+    половина s_prev — ЗАВЖДИ голосовий .pt вектор (якір проти дрейфу/
+    затихання ланцюга), просодійна — знята extract_voice_features з аудіо
+    попереднього item'а; тиша по краях
     кожного item'а ріжеться до ≤30мс lead / ≤120мс trail (поріг −50dBFS) +
     10мс лінійні фейди на краях. В output додається
     "parts": [{"index": i, "start_s": ..., "end_s": ...}] — межі КОЖНОГО item
@@ -272,11 +274,16 @@ def synthesize_item(text, s_prev):
 def synthesize_chain(texts, voice_name):
     """Array-режим: (wav 22050 Hz, parts). parts[i] — межі item'а i.
 
-    Перший item — голосовий .pt вектор; для item'а k>1 s_prev = стиль, знятий
-    зі згенерованого аудіо item'а k-1. Перед склейкою кожного item'а —
+    Перший item — голосовий .pt вектор. Для item'а k>1:
+    s_prev = cat([voice_style[:, :128], extracted[:, 128:]]) — акустична
+    половина (ref) ЗАВЖДИ з голосового .pt, просодійна — з аудіо item'а k-1.
+    Якір обов'язковий: стиль, повністю знятий зі синтезованого аудіо,
+    акумулює помилку екстракції — ланцюг затихає (живий прогін 66 сегментів:
+    RMS падав ~10× до кінця чанка). Перед склейкою кожного item'а —
     trim тиші + фейди.
     """
-    s_prev = VOICES[voice_name].to(DEVICE)
+    voice_style = VOICES[voice_name].to(DEVICE)
+    s_prev = voice_style
     out = []
     parts = []
     cum = 0
@@ -287,7 +294,9 @@ def synthesize_chain(texts, voice_name):
         except Exception as exc:
             raise RuntimeError(f"item {i} ({text[:60]!r}): {exc}") from exc
         if i < last:
-            s_prev = style_from_item_wav(wav24)
+            extracted = style_from_item_wav(wav24)
+            # Акустика — якір з .pt; з prev-аудіо беремо лише просодію.
+            s_prev = torch.cat((voice_style[:, :128], extracted[:, 128:]), dim=1)
         wav24 = trim_silence(wav24, SR_NATIVE)
         wav24 = apply_fades(wav24, SR_NATIVE)
         wav22 = RESAMPLER(wav24).clamp(-1.0, 1.0)

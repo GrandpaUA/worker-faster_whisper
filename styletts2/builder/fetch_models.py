@@ -100,11 +100,13 @@ def sanity_synthesis():
 
 
 def sanity_array_mode():
-    """Саніті array-режиму через реальний handler (CPU, 2 короткі тексти).
+    """Саніті array-режиму через реальний handler (CPU, 4 короткі тексти).
 
     Імпорт rp_handler безпечний: runpod-сервер там під __main__-ґвардом.
-    Ловить на білді поломку chunk-шляху (chaining/trim/межі parts), яка інакше
-    випливла б тільки на cold start endpoint'а.
+    Ловить на білді поломку chunk-шляху (chaining/trim/межі parts) І дрейф
+    амплітуди ланцюга: RMS останньої частини має бути ≥50% RMS першої
+    (інакше s_prev-чейнінг накопичує помилку і голос затихає — інцидент
+    живого прогону 66 сегментів 12.08.2026).
     """
     print("🧪 Sanity array-mode via rp_handler (CPU)...", flush=True)
     import rp_handler
@@ -112,28 +114,54 @@ def sanity_array_mode():
     out = rp_handler.handler({'input': {'texts': [
         "Привіт! Це перший тестовий сегмент.",
         "А це другий сегмент для перевірки меж.",
+        "Третій сегмент перевіряє дрейф гучності.",
+        "І останній сегмент для повноти картини.",
     ]}})
     if 'error' in out:
         raise RuntimeError(f"array-mode sanity failed: {out['error']}")
     parts = out.get('parts') or []
-    if len(parts) != 2:
-        raise RuntimeError(f"array-mode sanity: expected 2 parts, got {parts!r}")
+    if len(parts) != 4:
+        raise RuntimeError(f"array-mode sanity: expected 4 parts, got {parts!r}")
     if parts[0]['start_s'] != 0.0:
         raise RuntimeError(f"array-mode sanity: part 0 must start at 0: {parts!r}")
-    if parts[0]['end_s'] != parts[1]['start_s']:
-        raise RuntimeError(f"array-mode sanity: parts not contiguous: {parts!r}")
+    for a, b in zip(parts, parts[1:]):
+        if a['end_s'] != b['start_s']:
+            raise RuntimeError(f"array-mode sanity: parts not contiguous: {parts!r}")
     if parts[-1]['end_s'] != out['duration_sec']:
         raise RuntimeError(f"array-mode sanity: last end {parts[-1]['end_s']}s "
                            f"!= duration_sec {out['duration_sec']}s")
-    if out['duration_sec'] < 1.0:
+    if out['duration_sec'] < 2.0:
         raise RuntimeError(f"array-mode sanity: audio too short ({out['duration_sec']}s)")
+
+    # RMS кожної частини: ловимо дрейф амплітуди (затихання ланцюга) на білді
+    import base64
+    import io
+    import wave
+    import numpy as np
+    with wave.open(io.BytesIO(base64.b64decode(out['audio_base64'])), 'rb') as w:
+        if w.getframerate() != 22050 or w.getnchannels() != 1:
+            raise RuntimeError(f"array-mode sanity: unexpected wav format "
+                               f"{w.getframerate()}Hz/{w.getnchannels()}ch")
+        audio = np.frombuffer(w.readframes(w.getnframes()), dtype='<i2')
+    audio = audio.astype(np.float32) / 32768.0
+    rms = []
+    for p in parts:
+        seg = audio[int(p['start_s'] * 22050):int(p['end_s'] * 22050)]
+        rms.append(float(np.sqrt(np.mean(seg ** 2))))
+    print(f"   📈 RMS per part: {[round(r, 4) for r in rms]}", flush=True)
+    if min(rms) <= 0.0:
+        raise RuntimeError(f"array-mode sanity: silent part detected, rms={rms}")
+    if rms[-1] < 0.5 * rms[0]:
+        raise RuntimeError(
+            f"array-mode sanity: amplitude drift — last RMS {rms[-1]:.4f} < "
+            f"50% of first {rms[0]:.4f} (ланцюг затихає, s_prev-якір зламаний?)")
 
     # Порожній item — явний error, не тиха деградація
     out_err = rp_handler.handler({'input': {'texts': ['Привіт', '   ']}})
     if 'error' not in out_err:
         raise RuntimeError("array-mode sanity: empty item must return error")
 
-    print(f"✅ array-mode sanity OK: {out['duration_sec']}s, 2 items, parts={parts}", flush=True)
+    print(f"✅ array-mode sanity OK: {out['duration_sec']}s, 4 items, parts={parts}", flush=True)
 
 
 fetch_tts_model()
