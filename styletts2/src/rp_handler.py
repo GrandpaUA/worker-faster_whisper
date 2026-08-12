@@ -173,17 +173,22 @@ def synthesize(text, voice_name):
     return torch.cat(wavs).detach().cpu()
 
 
-def to_wav_bytes(wav):
-    """24 kHz float → WAV 22050 Hz mono 16-bit (ресемпл torchaudio)."""
-    wav = RESAMPLER(wav).clamp(-1.0, 1.0)
-    pcm = (wav.numpy() * 32767.0).astype('<i2')
+def _wav_bytes_22050(wav22):
+    """Готовий 22050 Hz float tensor → WAV mono 16-bit (без ресемплу)."""
+    pcm = (wav22.numpy() * 32767.0).astype('<i2')
     buf = io.BytesIO()
     with wave.open(buf, 'wb') as w:
         w.setnchannels(1)
         w.setsampwidth(2)
         w.setframerate(SR_OUT)
         w.writeframes(pcm.tobytes())
-    return buf.getvalue(), wav.numel() / SR_OUT
+    return buf.getvalue(), wav22.numel() / SR_OUT
+
+
+def to_wav_bytes(wav):
+    """24 kHz float → WAV 22050 Hz mono 16-bit (ресемпл torchaudio)."""
+    wav = RESAMPLER(wav).clamp(-1.0, 1.0)
+    return _wav_bytes_22050(wav)
 
 
 # ---------------------------------------------------------------------------
@@ -318,7 +323,9 @@ def handle_texts(job_input, texts):
     try:
         t0 = time.time()
         wav, parts = synthesize_chain(list(texts), voice)
-        audio_bytes, duration_sec = to_wav_bytes(wav)
+        # wav уже 22050 (per-item ресемпл у synthesize_chain) — кодуємо без
+        # повторного ресемплу, інакше темп і межі parts попливуть.
+        audio_bytes, duration_sec = _wav_bytes_22050(wav)
         synth_sec = time.time() - t0
     except Exception:
         # Голосно: помилка синтезу — це output.error, не тиха деградація.
