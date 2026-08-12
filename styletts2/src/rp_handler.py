@@ -13,10 +13,11 @@ verbalizer (цифри) → stressify (stanza) → ipa-uk → StyleTTS2.
   output: {"audio_base64": "<wav 22050 Hz mono 16-bit>", "duration_sec": float,
            "rtf": float, "voice": str, "gpu_name": str, ...}
   input (chunk):  {"texts": ["...", ...], "voice": "<optional>"} —
-    items склеюються в один WAV; між items prosody chaining: акустична
-    половина s_prev — ЗАВЖДИ голосовий .pt вектор (якір проти дрейфу/
-    затихання ланцюга), просодійна — знята extract_voice_features з аудіо
-    попереднього item'а; тиша по краях
+    items склеюються в один WAV; prosody chaining ЛИШЕ всередині item'а
+    (між його реченнями: акустичний якір з голосового .pt + просодія з
+    попереднього речення); між items s_prev ПОВНІСТЮ скидається на голосовий
+    .pt вектор (переніс просодії через межу розганяє темп, а повністю
+    екстрагований стиль ще й змушує ланцюг затихати); тиша по краях
     кожного item'а ріжеться до ≤30мс lead / ≤120мс trail (поріг −50dBFS) +
     10мс лінійні фейди на краях. В output додається
     "parts": [{"index": i, "start_s": ..., "end_s": ...}] — межі КОЖНОГО item
@@ -230,16 +231,17 @@ def apply_fades(wav, sr):
     return wav
 
 
-def style_from_item_wav(wav24):
-    """s_prev для наступного item'а: extract_voice_features з аудіо поточного.
+def style_from_wav24(wav24):
+    """Вектор стилю (1,256) з аудіо: extract_voice_features через тимчасовий WAV.
 
-    Через тимчасовий WAV: librosa.load (0.11+) не приймає ndarray, а шлях
-    читає разом із заголовком семплрейту — це ж файл-шлях, що й у HF space.
+    librosa.load (0.11+) не приймає ndarray, а шлях читає разом із заголовком
+    семплрейту — це ж файл-шлях, що й у HF space. Приймає tensor з будь-якого
+    device (у synthesize_item це GPU-вихід моделі).
     """
     fd, path = tempfile.mkstemp(suffix='.wav', prefix='st2_chain_')
     os.close(fd)
     try:
-        sf.write(path, wav24.clamp(-1.0, 1.0).numpy(), SR_NATIVE)
+        sf.write(path, wav24.clamp(-1.0, 1.0).detach().cpu().numpy(), SR_NATIVE)
         return MODEL.extract_voice_features(path)
     finally:
         try:
@@ -248,11 +250,14 @@ def style_from_item_wav(wav24):
             pass
 
 
-def synthesize_item(text, s_prev):
-    """Один item → waveform 24 kHz. Пайплайн ідентичний synthesize(), але
-    s_prev передається звоні (prosody chaining між items)."""
+def synthesize_item(text, voice_style):
+    """Один item → waveform 24 kHz. Chaining ЛИШЕ всередині item'а:
+    перше речення — голосовий .pt вектор, наступні речення item'а —
+    акустичний якір з .pt + просодія з аудіо попереднього речення."""
     if re.search(r'[0-9A-Za-z]', text):
         text = verbalize(text)
+    s_prev = voice_style
+    prev_wav = None
     wavs = []
     for part in split_to_parts(text):
         t = prepare_part(part)
@@ -264,7 +269,11 @@ def synthesize_item(text, s_prev):
         tokens = MODEL.tokenizer.encode(ps)
         if len(tokens) == 0:
             continue
+        if prev_wav is not None:
+            extracted = style_from_wav24(prev_wav)
+            s_prev = torch.cat((voice_style[:, :128], extracted[:, 128:]), dim=1)
         wav = MODEL(tokens, speed=1.0, s_prev=s_prev)
+        prev_wav = wav
         wavs.append(wav)
     if not wavs:
         raise ValueError("synthesis produced no audio (порожня фонемна послідовність?)")
@@ -274,29 +283,23 @@ def synthesize_item(text, s_prev):
 def synthesize_chain(texts, voice_name):
     """Array-режим: (wav 22050 Hz, parts). parts[i] — межі item'а i.
 
-    Перший item — голосовий .pt вектор. Для item'а k>1:
-    s_prev = cat([voice_style[:, :128], extracted[:, 128:]]) — акустична
-    половина (ref) ЗАВЖДИ з голосового .pt, просодійна — з аудіо item'а k-1.
-    Якір обов'язковий: стиль, повністю знятий зі синтезованого аудіо,
-    акумулює помилку екстракції — ланцюг затихає (живий прогін 66 сегментів:
-    RMS падав ~10× до кінця чанка). Перед склейкою кожного item'а —
+    Chaining ТІЛЬКИ всередині item'а (між його реченнями): акустичний якір
+    з голосового .pt + просодія з попереднього речення. Між items s_prev
+    ПОВНІСТЮ скидається на голосовий .pt вектор: переніс просодії через межу
+    item'а розганяє темп (інцидент 12.08.2026: частини чанка 27-28 симв/с
+    при медіані 15), а повністю екстрагований стиль ще й акумулює помилку
+    амплітуди (ланцюг затихає). Перед склейкою кожного item'а —
     trim тиші + фейди.
     """
     voice_style = VOICES[voice_name].to(DEVICE)
-    s_prev = voice_style
     out = []
     parts = []
     cum = 0
-    last = len(texts) - 1
     for i, text in enumerate(texts):
         try:
-            wav24 = synthesize_item(text, s_prev)
+            wav24 = synthesize_item(text, voice_style)
         except Exception as exc:
             raise RuntimeError(f"item {i} ({text[:60]!r}): {exc}") from exc
-        if i < last:
-            extracted = style_from_item_wav(wav24)
-            # Акустика — якір з .pt; з prev-аудіо беремо лише просодію.
-            s_prev = torch.cat((voice_style[:, :128], extracted[:, 128:]), dim=1)
         wav24 = trim_silence(wav24, SR_NATIVE)
         wav24 = apply_fades(wav24, SR_NATIVE)
         wav22 = RESAMPLER(wav24).clamp(-1.0, 1.0)

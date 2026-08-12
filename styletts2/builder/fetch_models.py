@@ -103,20 +103,22 @@ def sanity_array_mode():
     """Саніті array-режиму через реальний handler (CPU, 4 короткі тексти).
 
     Імпорт rp_handler безпечний: runpod-сервер там під __main__-ґвардом.
-    Ловить на білді поломку chunk-шляху (chaining/trim/межі parts) І дрейф
-    амплітуди ланцюга: RMS останньої частини має бути ≥50% RMS першої
-    (інакше s_prev-чейнінг накопичує помилку і голос затихає — інцидент
-    живого прогону 66 сегментів 12.08.2026).
+    Ловить на білді поломку chunk-шляху (chaining/trim/межі parts) і обидва
+    відомі дрейфи ланцюга (інциденти живих прогонів 12.08.2026):
+    - амплітудний: RMS останньої частини ≥50% RMS першої (затихання);
+    - темповий: chars/sec кожної частини в [0.7×, 1.45×] медіани частин
+      (розгін/уповільнення від переносу просодії).
     """
     print("🧪 Sanity array-mode via rp_handler (CPU)...", flush=True)
     import rp_handler
 
-    out = rp_handler.handler({'input': {'texts': [
+    texts = [
         "Привіт! Це перший тестовий сегмент.",
         "А це другий сегмент для перевірки меж.",
         "Третій сегмент перевіряє дрейф гучності.",
         "І останній сегмент для повноти картини.",
-    ]}})
+    ]
+    out = rp_handler.handler({'input': {'texts': texts}})
     if 'error' in out:
         raise RuntimeError(f"array-mode sanity failed: {out['error']}")
     parts = out.get('parts') or []
@@ -155,6 +157,23 @@ def sanity_array_mode():
         raise RuntimeError(
             f"array-mode sanity: amplitude drift — last RMS {rms[-1]:.4f} < "
             f"50% of first {rms[0]:.4f} (ланцюг затихає, s_prev-якір зламаний?)")
+
+    # Темп кожної частини (chars/sec): ловимо розгін/уповільнення від
+    # переносу просодії між items
+    rates = []
+    for t, p in zip(texts, parts):
+        dur = p['end_s'] - p['start_s']
+        if dur <= 0:
+            raise RuntimeError(f"array-mode sanity: non-positive part duration: {p!r}")
+        rates.append(len(t) / dur)
+    med = float(np.median(rates))
+    print(f"   ⏱ chars/sec per part: {[round(r, 2) for r in rates]} "
+          f"(median {med:.2f})", flush=True)
+    for r in rates:
+        if not (0.7 * med <= r <= 1.45 * med):
+            raise RuntimeError(
+                f"array-mode sanity: tempo drift — {r:.2f} chars/s outside "
+                f"[0.7×, 1.45×] of median {med:.2f} (просодія розганяє темп?)")
 
     # Порожній item — явний error, не тиха деградація
     out_err = rp_handler.handler({'input': {'texts': ['Привіт', '   ']}})
