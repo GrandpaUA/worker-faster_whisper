@@ -99,10 +99,48 @@ def sanity_synthesis():
         raise RuntimeError(f"sanity audio too short ({duration_sec:.2f}s) — model/voice mismatch?")
 
 
+def sanity_array_mode():
+    """Саніті array-режиму через реальний handler (CPU, 2 короткі тексти).
+
+    Імпорт rp_handler безпечний: runpod-сервер там під __main__-ґвардом.
+    Ловить на білді поломку chunk-шляху (chaining/trim/межі parts), яка інакше
+    випливла б тільки на cold start endpoint'а.
+    """
+    print("🧪 Sanity array-mode via rp_handler (CPU)...", flush=True)
+    import rp_handler
+
+    out = rp_handler.handler({'input': {'texts': [
+        "Привіт! Це перший тестовий сегмент.",
+        "А це другий сегмент для перевірки меж.",
+    ]}})
+    if 'error' in out:
+        raise RuntimeError(f"array-mode sanity failed: {out['error']}")
+    parts = out.get('parts') or []
+    if len(parts) != 2:
+        raise RuntimeError(f"array-mode sanity: expected 2 parts, got {parts!r}")
+    if parts[0]['start_s'] != 0.0:
+        raise RuntimeError(f"array-mode sanity: part 0 must start at 0: {parts!r}")
+    if parts[0]['end_s'] != parts[1]['start_s']:
+        raise RuntimeError(f"array-mode sanity: parts not contiguous: {parts!r}")
+    if parts[-1]['end_s'] != out['duration_sec']:
+        raise RuntimeError(f"array-mode sanity: last end {parts[-1]['end_s']}s "
+                           f"!= duration_sec {out['duration_sec']}s")
+    if out['duration_sec'] < 1.0:
+        raise RuntimeError(f"array-mode sanity: audio too short ({out['duration_sec']}s)")
+
+    # Порожній item — явний error, не тиха деградація
+    out_err = rp_handler.handler({'input': {'texts': ['Привіт', '   ']}})
+    if 'error' not in out_err:
+        raise RuntimeError("array-mode sanity: empty item must return error")
+
+    print(f"✅ array-mode sanity OK: {out['duration_sec']}s, 2 items, parts={parts}", flush=True)
+
+
 fetch_tts_model()
 fetch_voices()
 fetch_verbalizer()
 fetch_stressifier()
 sanity_synthesis()
+sanity_array_mode()
 
 print("✅ Finished downloading and verifying all models.", flush=True)
