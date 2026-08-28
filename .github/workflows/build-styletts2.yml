@@ -6,6 +6,11 @@ on:
     paths:
       - 'styletts2/**'
   workflow_dispatch:
+    inputs:
+      nocache:
+        description: 'Побудова без кешованих шарів (ноль залежностей від попередніх збірок)'
+        type: boolean
+        default: false
 
 jobs:
   build:
@@ -40,5 +45,6 @@ jobs:
           file: styletts2/Dockerfile
           push: true
           tags: ${{ steps.meta.outputs.tags }}
+          no-cache: ${{ inputs.nocache == 'true' }}
           cache-from: type=gha,scope=styletts2
           cache-to: type=gha,scope=styletts2,mode=max
