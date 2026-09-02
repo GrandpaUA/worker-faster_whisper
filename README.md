@@ -1,5 +1,21 @@
 ![Faster Whisper Logo](https://5ccaof7hvfzuzf4p.public.blob.vercel-storage.com/banner-pjbGKw0buxbWGhMVC165Gf9qgqWo7I.jpeg)
 
+## YouTube Voice Translator workers
+
+Цей репозиторій зараз збирає два RunPod Serverless worker'и:
+
+- `drgrandpa/whisper-worker` - Faster Whisper transcription + Demucs/Roformer source separation.
+- `drgrandpa/styletts2-ua` - Ukrainian StyleTTS2/Patriotyk TTS.
+
+Актуальна документація проєкту:
+
+- [Архітектура](docs/ARCHITECTURE.md)
+- [RunPod contracts](docs/RUNPOD_CONTRACTS.md)
+- [Deploy runbook](docs/DEPLOY_RUNBOOK.md)
+
+Generic Faster Whisper documentation нижче - історична upstream-документація
+worker'а. Поточним контрактом продукту вважати файли в `docs/`.
+
 [Faster Whisper](https://github.com/guillaumekln/faster-whisper) is designed to process audio files using various Whisper models, with options for transcription formatting, language translation and more.
 
 ---
