@@ -13,6 +13,13 @@
 - [RunPod contracts](docs/RUNPOD_CONTRACTS.md)
 - [Deploy runbook](docs/DEPLOY_RUNBOOK.md)
 
+Deploy/test tool для RunPod endpoint'ів:
+
+```bash
+python tools/runpod_endpoint.py create --worker styletts2_ua --image drgrandpa/styletts2-ua:sha-e706b9e
+python tools/runpod_endpoint.py info <endpoint_id>
+```
+
 Generic Faster Whisper documentation нижче - історична upstream-документація
 worker'а. Поточним контрактом продукту вважати файли в `docs/`.
 

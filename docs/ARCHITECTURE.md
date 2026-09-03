@@ -27,7 +27,7 @@ endpoint'и, кешує результат і віддає його розшир
 - Handler input/output contracts.
 - Prefetch моделей у image або описаний механізм runtime cache.
 - GitHub Actions build pipeline.
-- RunPod deploy/test tooling для endpoint'ів.
+- RunPod deploy/test tooling для endpoint'ів (`tools/runpod_endpoint.py`).
 
 `youtube-translator` відповідає за:
 
@@ -72,14 +72,7 @@ endpoint, вона має жити в `youtube-translator`.
    contract tests без важких моделей; StyleTTS2 потребує окремого підходу,
    бо його module import вантажить важкий TTS stack.
 
-3. **Deploy tooling лежить не там.** `tools/runpod_styletts2_deploy.py` зараз у
-   `youtube-translator`, хоча керує image/endpoint з цього repo.
-
-4. **Deploy все ще може взяти `latest`, якщо tool це дозволяє.** Workflow
-   пушить `sha-*` і convenience `latest`, але production deploy має вимагати
-   explicit `sha-*` tag.
-
-5. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
+3. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
    `demucs`, `runpod~=1.9.0` можуть зрушити поведінку при новому build.
 
 ## Цільова структура
@@ -121,9 +114,8 @@ scripts уже прив'язані до поточного layout. Спочат�
 
 ## Рекомендована черга змін
 
-1. Перенести RunPod deploy tooling у цей repo і вимагати explicit image tag.
-2. Додати lightweight contract tests для StyleTTS2 batch contract.
-3. Після цього вирішити, чи потрібен фізичний move у `workers/`.
+1. Додати lightweight contract tests для StyleTTS2 batch contract.
+2. Після цього вирішити, чи потрібен фізичний move у `workers/`.
 
 ## Джерела
 

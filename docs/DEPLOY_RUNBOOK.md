@@ -48,10 +48,32 @@ Manual inputs:
 1. Переконатись, що потрібний commit запушений у `worker-faster_whisper`.
 2. Дочекатись успішного GitHub Actions build.
 3. Взяти `sha-*` image tag з build summary або Docker Hub.
-4. Оновити RunPod template/endpoint саме на цей image tag.
+4. Для нового endpoint створити RunPod template/endpoint саме на цей image tag
+   через `tools/runpod_endpoint.py create`. Для існуючого endpoint вручну
+   оновити template/image у RunPod console або додати окрему `update`-команду
+   перед автоматизацією production update.
 5. Перевірити endpoint через реальний RunPod `/run` + `/status`, не тільки
    через UI status.
 6. Перевірити, що output містить продукт: transcription segments, stems або WAV.
+
+## Deploy/test tool
+
+Tool живе в цьому repo, бо він керує worker image і RunPod endpoint'ами.
+Поточна автоматизація покриває створення нового template+endpoint і smoke-test:
+
+```bash
+python tools/runpod_endpoint.py gpus
+python tools/runpod_endpoint.py create --worker styletts2_ua --image drgrandpa/styletts2-ua:sha-e706b9e
+python tools/runpod_endpoint.py create --worker whisper_separate --image drgrandpa/whisper-worker:sha-e706b9e
+python tools/runpod_endpoint.py info <endpoint_id>
+python tools/runpod_endpoint.py run-styletts2 <endpoint_id> --out styletts2_test.wav
+```
+
+`RUNPOD_API_KEY` читається з environment, `--env <path>` або `.env`. При запуску
+з цього repo tool також перевіряє sibling checkout `../subtitres/.env`.
+
+`create` відкидає `latest`, untagged image і tag'и не виду `sha-*`. Це навмисно:
+production endpoint має бути прив'язаний до конкретного build artifact.
 
 ## Whisper model prefetch
 
