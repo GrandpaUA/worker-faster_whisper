@@ -47,6 +47,8 @@ endpoint, вона має жити в `youtube-translator`.
 2. Backend відправляє job у RunPod endpoint `drgrandpa/whisper-worker`.
 3. `src/rp_handler.py` валідовує input через `src/rp_schema.py`.
 4. Для `task != "separate"` викликається Faster Whisper через `src/predict.py`.
+   Default модель worker'а і image prefetch - `large-v2`; експериментальні
+   build'и можуть задавати `WHISPER_MODELS`.
 5. Для `task == "separate"` викликається Demucs або Roformer.
 6. Handler повертає JSON output у контрактному форматі.
 7. Основний backend парсить output, кешує і продовжує pipeline.
@@ -64,25 +66,18 @@ endpoint, вона має жити в `youtube-translator`.
 1. **Нечітка структура repo.** Один worker лежить у root, другий у `styletts2/`.
    Це працює, але не показує явно, що тут два окремі продукти.
 
-2. **Немає контрактних тестів.** Handler contracts описані в README/коментарях,
-   але не закріплені тестами без важких моделей.
+2. **StyleTTS2 ще без lightweight contract tests.** Root worker уже має
+   contract tests без важких моделей; StyleTTS2 потребує окремого підходу,
+   бо його module import вантажить важкий TTS stack.
 
-3. **Whisper prefetch не синхронізований з main repo.** Основний застосунок
-   використовує `RUNPOD_WHISPER_MODEL=large-v2` за замовчуванням, а поточний
-   `builder/fetch_models.py` prefetch'ить `small`.
-
-4. **Deploy tooling лежить не там.** `tools/runpod_styletts2_deploy.py` зараз у
+3. **Deploy tooling лежить не там.** `tools/runpod_styletts2_deploy.py` зараз у
    `youtube-translator`, хоча керує image/endpoint з цього repo.
 
-5. **`latest` небезпечний для deploy.** Workflow пушить `latest`, а старий
+4. **`latest` небезпечний для deploy.** Workflow пушить `latest`, а старий
    deploy script має hardcoded `drgrandpa/styletts2-ua:latest`. Після rebuild
    endpoint може продовжити працювати зі старим image cache.
 
-6. **Root handler стартує RunPod server при import.** Це ускладнює unit tests.
-   `styletts2` вже має `if __name__ == "__main__"` guard; root worker має бути
-   приведений до такого ж патерну окремою поведінково нейтральною зміною.
-
-7. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
+5. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
    `demucs`, `runpod~=1.9.0` можуть зрушити поведінку при новому build.
 
 ## Цільова структура
@@ -124,14 +119,11 @@ scripts уже прив'язані до поточного layout. Спочат�
 
 ## Рекомендована черга змін
 
-1. Додати docs і зафіксувати межі відповідальності.
-2. Додати import-safe entrypoint guard для root worker.
-3. Додати lightweight contract tests з mock'ами без завантаження моделей.
-4. Синхронізувати Whisper model prefetch з production default `large-v2`.
-5. Переробити build workflows: explicit worker matrix, `sha-*` tags, `latest`
+1. Переробити build workflows: explicit worker matrix, `sha-*` tags, `latest`
    тільки як convenience.
-6. Перенести RunPod deploy tooling у цей repo і вимагати explicit image tag.
-7. Після цього вирішити, чи потрібен фізичний move у `workers/`.
+2. Перенести RunPod deploy tooling у цей repo і вимагати explicit image tag.
+3. Додати lightweight contract tests для StyleTTS2 batch contract.
+4. Після цього вирішити, чи потрібен фізичний move у `workers/`.
 
 ## Джерела
 

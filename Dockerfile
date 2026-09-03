@@ -31,6 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=builder /opt/venv /opt/venv
 
 # Pre-fetch Whisper model into image
+ARG WHISPER_MODELS=large-v2
+ENV WHISPER_MODELS=${WHISPER_MODELS}
 COPY builder/fetch_models.py /fetch_models.py
 RUN python /fetch_models.py && rm /fetch_models.py
 

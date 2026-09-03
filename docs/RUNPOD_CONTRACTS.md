@@ -54,6 +54,7 @@ worker'ами. Він має бути первинним місцем для п�
 
 `audio_base64` може використовуватись замість `audio`. Рівно одне з полів
 `audio` або `audio_base64` має бути задане.
+Якщо `model` не заданий, worker використовує `large-v2`.
 
 ### Output
 
@@ -93,9 +94,10 @@ worker'ами. Він має бути первинним місцем для п�
 
 ### Production expectation
 
-Основний repo зараз очікує production default `large-v2`. Image має або
-prefetch'ити `large-v2`, або гучно падати при невідповідності. Тиха runtime
-дозагрузка моделі небажана, бо маскує cold-start проблему.
+Основний repo зараз очікує production default `large-v2`. Звичайний image
+prefetch'ить `large-v2`; інші моделі для експериментів треба задавати явно.
+Тиха runtime дозагрузка непередбаченої моделі небажана, бо маскує cold-start
+проблему.
 
 ## `whisper_separate`: source separation
 
@@ -215,6 +217,7 @@ WAV contract: mono, 16-bit PCM, 22050 Hz.
 ## Що має покривати contract test suite
 
 - Handler import не стартує RunPod server.
+- Transcription без `model` використовує default `large-v2`.
 - Input validation відкидає одночасні `audio` і `audio_base64`.
 - Transcription output має `segments`, `detected_language`, `model`, `device`.
 - Separation output для `return_stems=false` не містить base64 stem'ів.

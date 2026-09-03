@@ -214,6 +214,21 @@ class RunpodHandlerContractTests(unittest.TestCase):
             self.assertTrue(call["condition_on_previous_text"])
             self.assertTrue(call["word_timestamps"])
 
+    def test_omitted_model_defaults_to_large_v2(self):
+        with _HandlerLoader() as loaded:
+            result = loaded.module.handler(
+                {
+                    "id": "job-1",
+                    "input": {
+                        "audio": "https://example.test/audio.wav",
+                    },
+                }
+            )
+
+            self.assertEqual(result["model"], "large-v2")
+            call = _FakePredictor.instances[0].predict_calls[0]
+            self.assertEqual(call["model_name"], "large-v2")
+
     def test_rejects_missing_or_duplicate_audio_sources(self):
         with _HandlerLoader() as loaded:
             missing = loaded.module.handler({"id": "job-1", "input": {"model": "large-v2"}})

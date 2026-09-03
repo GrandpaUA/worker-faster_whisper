@@ -46,7 +46,7 @@ class Predictor:
     def predict(
         self,
         audio,
-        model_name="base",
+        model_name="large-v2",
         transcription="plain_text",
         translate=False,
         translation="plain_text",  # Added in a previous PR

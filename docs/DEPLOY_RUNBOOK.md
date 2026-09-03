@@ -39,6 +39,19 @@ drgrandpa/<image>:latest
    через UI status.
 6. Перевірити, що output містить продукт: transcription segments, stems або WAV.
 
+## Whisper model prefetch
+
+Звичайний build `drgrandpa/whisper-worker` prefetch'ить `large-v2`, бо це
+production default основного застосунку. Для експериментального image можна
+передати Docker build arg:
+
+```text
+WHISPER_MODELS=small,large-v2
+```
+
+Не додавати кілька Whisper моделей без причини: кожна модель збільшує image на
+гігабайти і подовжує build/pull.
+
 ## Що вважати успішним deploy
 
 Для `whisper_separate`:
