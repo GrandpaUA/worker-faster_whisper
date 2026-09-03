@@ -8,8 +8,8 @@ target.
 
 | Worker | Docker image | GitHub workflow |
 | --- | --- | --- |
-| `whisper_separate` | `drgrandpa/whisper-worker` | `.github/workflows/build-image.yml` |
-| `styletts2_ua` | `drgrandpa/styletts2-ua` | `.github/workflows/build-styletts2.yml` |
+| `whisper_separate` | `drgrandpa/whisper-worker` | `.github/workflows/build-workers.yml` |
+| `styletts2_ua` | `drgrandpa/styletts2-ua` | `.github/workflows/build-workers.yml` |
 
 ## Правило image tags
 
@@ -28,6 +28,20 @@ drgrandpa/<image>:latest
 `latest` не використовувати для оновлення endpoint. Причина проста: mutable tag
 не гарантує, що RunPod worker підтягне саме новий image. У нас уже був інцидент,
 коли rebuild відбувся, але endpoint продовжив відповідати старим handler'ом.
+
+## Build workflow
+
+Поточний build workflow: `.github/workflows/build-workers.yml`.
+
+Manual inputs:
+
+- `worker`: `all`, `whisper_separate` або `styletts2_ua`;
+- `nocache`: build без cached layers;
+- `whisper_models`: comma-separated список моделей для prefetch у
+  `drgrandpa/whisper-worker`; default `large-v2`.
+
+На `push` у `main` workflow збирає matrix з обох worker'ів для релевантних
+шляхів і пушить `sha-*`, `latest` та tag ref для `v*` tags.
 
 ## Безпечний ручний deploy
 
@@ -104,37 +118,6 @@ FlashBoot:
 - не доводить, що endpoint працює правильним image.
 
 Тому FlashBoot - endpoint optimization, а не заміна відтворюваного deploy.
-
-## Рекомендована наступна перебудова workflow
-
-Поточні два workflow можна залишити тимчасово, але цільовий стан:
-
-- один `build-workers.yml`;
-- matrix по worker'ах;
-- explicit context/file/image per worker;
-- `sha-*` tag обов'язковий;
-- `latest` optional;
-- build cache зі scope per worker;
-- top-level `permissions: contents: read`;
-- manual `workflow_dispatch` з вибором worker і `nocache`.
-
-Приклад логіки matrix:
-
-```yaml
-strategy:
-  matrix:
-    worker:
-      - name: whisper_separate
-        context: .
-        dockerfile: Dockerfile
-        image: drgrandpa/whisper-worker
-        cache_scope: whisper
-      - name: styletts2_ua
-        context: styletts2
-        dockerfile: styletts2/Dockerfile
-        image: drgrandpa/styletts2-ua
-        cache_scope: styletts2
-```
 
 ## Rollback
 

@@ -13,6 +13,8 @@ endpoint'и, кешує результат і віддає його розшир
 | `whisper_separate` | `drgrandpa/whisper-worker` | repo root: `Dockerfile`, `src/`, `builder/` | Faster Whisper transcription + Demucs/Roformer source separation |
 | `styletts2_ua` | `drgrandpa/styletts2-ua` | `styletts2/` | Ukrainian StyleTTS2/Patriotyk TTS |
 
+Обидва image збираються через `.github/workflows/build-workers.yml`.
+
 Назви `whisper_separate` і `styletts2_ua` - логічні назви продуктів. Фізично
 перший worker ще лежить у корені репозиторію, другий - у `styletts2/`. Це
 історичний стан, а не бажана кінцева структура.
@@ -73,9 +75,9 @@ endpoint, вона має жити в `youtube-translator`.
 3. **Deploy tooling лежить не там.** `tools/runpod_styletts2_deploy.py` зараз у
    `youtube-translator`, хоча керує image/endpoint з цього repo.
 
-4. **`latest` небезпечний для deploy.** Workflow пушить `latest`, а старий
-   deploy script має hardcoded `drgrandpa/styletts2-ua:latest`. Після rebuild
-   endpoint може продовжити працювати зі старим image cache.
+4. **Deploy все ще може взяти `latest`, якщо tool це дозволяє.** Workflow
+   пушить `sha-*` і convenience `latest`, але production deploy має вимагати
+   explicit `sha-*` tag.
 
 5. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
    `demucs`, `runpod~=1.9.0` можуть зрушити поведінку при новому build.
@@ -119,11 +121,9 @@ scripts уже прив'язані до поточного layout. Спочат�
 
 ## Рекомендована черга змін
 
-1. Переробити build workflows: explicit worker matrix, `sha-*` tags, `latest`
-   тільки як convenience.
-2. Перенести RunPod deploy tooling у цей repo і вимагати explicit image tag.
-3. Додати lightweight contract tests для StyleTTS2 batch contract.
-4. Після цього вирішити, чи потрібен фізичний move у `workers/`.
+1. Перенести RunPod deploy tooling у цей repo і вимагати explicit image tag.
+2. Додати lightweight contract tests для StyleTTS2 batch contract.
+3. Після цього вирішити, чи потрібен фізичний move у `workers/`.
 
 ## Джерела
 
