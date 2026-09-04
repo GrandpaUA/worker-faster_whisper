@@ -8,7 +8,8 @@ target.
 
 | Worker | Docker image | GitHub workflow |
 | --- | --- | --- |
-| `whisper_separate` | `drgrandpa/whisper-worker` | `.github/workflows/build-workers.yml` |
+| `whisper_asr` | `drgrandpa/whisper-worker` | `.github/workflows/build-workers.yml` |
+| `separate_audio` | `drgrandpa/separate-worker` | `.github/workflows/build-workers.yml` |
 | `styletts2_ua` | `drgrandpa/styletts2-ua` | `.github/workflows/build-workers.yml` |
 
 ## Правило image tags
@@ -35,12 +36,12 @@ drgrandpa/<image>:latest
 
 Manual inputs:
 
-- `worker`: `all`, `whisper_separate` або `styletts2_ua`;
+- `worker`: `all`, `whisper_asr`, `separate_audio` або `styletts2_ua`;
 - `nocache`: build без cached layers;
 - `whisper_models`: comma-separated список моделей для prefetch у
   `drgrandpa/whisper-worker`; default `large-v2`.
 
-На `push` у `main` workflow збирає matrix з обох worker'ів для релевантних
+На `push` у `main` workflow збирає matrix з трьох worker'ів для релевантних
 шляхів і пушить `sha-*`, `latest` та tag ref для `v*` tags.
 
 ## Безпечний ручний deploy
@@ -64,7 +65,8 @@ Tool живе в цьому repo, бо він керує worker image і RunPod 
 ```bash
 python tools/runpod_endpoint.py gpus
 python tools/runpod_endpoint.py create --worker styletts2_ua --image drgrandpa/styletts2-ua:sha-e706b9e
-python tools/runpod_endpoint.py create --worker whisper_separate --image drgrandpa/whisper-worker:sha-e706b9e
+python tools/runpod_endpoint.py create --worker whisper_asr --image drgrandpa/whisper-worker:sha-e706b9e
+python tools/runpod_endpoint.py create --worker separate_audio --image drgrandpa/separate-worker:sha-e706b9e
 python tools/runpod_endpoint.py info <endpoint_id>
 python tools/runpod_endpoint.py run-styletts2 <endpoint_id> --out styletts2_test.wav
 ```
@@ -90,13 +92,21 @@ WHISPER_MODELS=small,large-v2
 
 ## Що вважати успішним deploy
 
-Для `whisper_separate`:
+Для `whisper_asr`:
 
 - endpoint приймає `audio` або `audio_base64`;
 - `model` у output відповідає запитаній моделі;
 - `device` показує `cuda`, якщо endpoint має GPU;
 - `segments` непорожній для тестового аудіо з мовою;
-- для separation `return_stems=false` повертаються розміри stem'ів.
+- `task: "separate"` повертає явну помилку, бо це не той endpoint.
+
+Для `separate_audio`:
+
+- endpoint приймає тільки `task: "separate"`;
+- `engine: "demucs"` і `engine: "roformer"` повертають stems або metadata;
+- для `return_stems=false` повертаються розміри stem'ів;
+- `cuda_available`, `gpu_name` і для Roformer `torch_device`/`onnx_execution_provider`
+  дозволяють перевірити, що job реально пішов на GPU.
 
 Для `styletts2_ua`:
 

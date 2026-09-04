@@ -47,7 +47,14 @@ class RunpodEndpointToolTests(unittest.TestCase):
         tool = load_tool()
 
         with self.assertRaisesRegex(ValueError, "sha-"):
-            tool.validate_pinned_image("whisper_separate", "drgrandpa/whisper-worker:v1.2.3")
+            tool.validate_pinned_image("whisper_asr", "drgrandpa/whisper-worker:v1.2.3")
+
+    def test_validate_pinned_image_accepts_separate_worker(self):
+        tool = load_tool()
+
+        image = tool.validate_pinned_image("separate_audio", "drgrandpa/separate-worker:sha-e706b9e")
+
+        self.assertEqual(image, "drgrandpa/separate-worker:sha-e706b9e")
 
     def test_load_key_prefers_environment(self):
         tool = load_tool()

@@ -252,48 +252,22 @@ class RunpodHandlerContractTests(unittest.TestCase):
             self.assertIn("error", result)
             self.assertIn("audio must be str", result["error"])
 
-    def test_unknown_separation_engine_returns_error(self):
+    def test_separation_task_is_rejected_by_whisper_endpoint(self):
         with _HandlerLoader() as loaded:
             result = loaded.module.handler(
                 {
                     "id": "job-1",
                     "input": {
                         "task": "separate",
-                        "engine": "spleeter",
                         "audio_base64": "ZmFrZQ==",
                     },
                 }
             )
 
-            self.assertEqual(result, {"error": "Unknown engine 'spleeter', expected 'demucs' or 'roformer'"})
-
-    def test_demucs_metadata_mode_omits_base64_stems(self):
-        with _HandlerLoader() as loaded:
-            module = loaded.module
-            with (
-                mock.patch.object(module.subprocess, "run", return_value=_CompletedProcess()),
-                mock.patch.object(module.tempfile, "mkdtemp", return_value="/tmp/out"),
-                mock.patch.object(module.os.path, "exists", return_value=True),
-                mock.patch.object(module.os.path, "getsize", return_value=1234),
-            ):
-                result = module.handler(
-                    {
-                        "id": "job-1",
-                        "input": {
-                            "task": "separate",
-                            "engine": "demucs",
-                            "audio": "https://example.test/audio.wav",
-                            "return_stems": False,
-                        },
-                    }
-                )
-
-            self.assertEqual(result["model"], "htdemucs_ft")
-            self.assertEqual(result["cuda_available"], False)
-            self.assertEqual(result["vocals_bytes"], 1234)
-            self.assertEqual(result["no_vocals_bytes"], 1234)
-            self.assertNotIn("vocals_base64", result)
-            self.assertNotIn("no_vocals_base64", result)
+            self.assertEqual(
+                result,
+                {"error": "This endpoint supports only transcription. Use separate-worker for task='separate'."},
+            )
 
 
 if __name__ == "__main__":

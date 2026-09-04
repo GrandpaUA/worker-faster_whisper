@@ -10,14 +10,15 @@ endpoint'и, кешує результат і віддає його розшир
 
 | Worker | Image | Поточна папка | Призначення |
 | --- | --- | --- | --- |
-| `whisper_separate` | `drgrandpa/whisper-worker` | repo root: `Dockerfile`, `src/`, `builder/` | Faster Whisper transcription + Demucs/Roformer source separation |
+| `whisper_asr` | `drgrandpa/whisper-worker` | repo root: `Dockerfile`, `src/rp_handler.py`, `src/predict.py`, `builder/` | Faster Whisper transcription only |
+| `separate_audio` | `drgrandpa/separate-worker` | repo root: `Dockerfile.separate`, `src/separate_handler.py`, `src/separate.py`, `builder/` | Demucs/Roformer source separation |
 | `styletts2_ua` | `drgrandpa/styletts2-ua` | `styletts2/` | Ukrainian StyleTTS2/Patriotyk TTS |
 
-Обидва image збираються через `.github/workflows/build-workers.yml`.
+Усі image збираються через `.github/workflows/build-workers.yml`.
 
-Назви `whisper_separate` і `styletts2_ua` - логічні назви продуктів. Фізично
-перший worker ще лежить у корені репозиторію, другий - у `styletts2/`. Це
-історичний стан, а не бажана кінцева структура.
+Назви `whisper_asr`, `separate_audio` і `styletts2_ua` - логічні назви
+продуктів. Фізично два перші worker-и ще лежать у корені репозиторію, третій -
+у `styletts2/`. Це історичний стан, а не бажана кінцева структура.
 
 ## Межі відповідальності
 
@@ -43,17 +44,24 @@ endpoint, вона має жити в `youtube-translator`.
 
 ## Поточний потік
 
-### Whisper / separation
+### Whisper
 
 1. `youtube-translator/subgen` вирізає аудіо або chunk'и.
 2. Backend відправляє job у RunPod endpoint `drgrandpa/whisper-worker`.
 3. `src/rp_handler.py` валідовує input через `src/rp_schema.py`.
-4. Для `task != "separate"` викликається Faster Whisper через `src/predict.py`.
+4. Викликається Faster Whisper через `src/predict.py`.
    Default модель worker'а і image prefetch - `large-v2`; експериментальні
    build'и можуть задавати `WHISPER_MODELS`.
-5. Для `task == "separate"` викликається Demucs або Roformer.
-6. Handler повертає JSON output у контрактному форматі.
-7. Основний backend парсить output, кешує і продовжує pipeline.
+5. Handler повертає JSON output у контрактному форматі.
+6. Основний backend парсить output, кешує і продовжує pipeline.
+
+### Separation
+
+1. `youtube-translator/subgen` готує аудіо для приглушення фону.
+2. Backend відправляє job у окремий RunPod endpoint `drgrandpa/separate-worker`.
+3. `src/separate_handler.py` приймає тільки `task == "separate"`.
+4. `src/separate.py` викликає Demucs або Roformer.
+5. Handler повертає stems або metadata, якщо `return_stems=false`.
 
 ### StyleTTS2 UA
 
@@ -65,14 +73,14 @@ endpoint, вона має жити в `youtube-translator`.
 
 ## Поточні технічні борги
 
-1. **Нечітка структура repo.** Один worker лежить у root, другий у `styletts2/`.
-   Це працює, але не показує явно, що тут два окремі продукти.
+1. **Нечітка структура repo.** Два worker-и лежать у root, третій у `styletts2/`.
+   Це працює, але не показує явно, що тут три окремі продукти.
 
 2. **StyleTTS2 ще без lightweight contract tests.** Root worker уже має
    contract tests без важких моделей; StyleTTS2 потребує окремого підходу,
    бо його module import вантажить важкий TTS stack.
 
-3. **Залежності частково не pinned.** У root worker `torch`, `torchaudio`,
+3. **Залежності частково не pinned.** У separation worker `torch`, `torchaudio`,
    `demucs`, `runpod~=1.9.0` можуть зрушити поведінку при новому build.
 
 ## Цільова структура
@@ -85,7 +93,13 @@ contract tests і стабілізації build/deploy.
 ```text
 worker-faster_whisper/
   workers/
-    whisper_separate/
+    whisper_asr/
+      Dockerfile
+      builder/
+      src/
+      tests/
+      README.md
+    separate_audio/
       Dockerfile
       builder/
       src/

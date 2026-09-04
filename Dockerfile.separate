@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN python3 -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-COPY builder/requirements.txt /requirements.txt
+COPY builder/requirements-separate.txt /requirements.txt
 RUN pip install --no-cache-dir -r /requirements.txt
 
 FROM nvidia/cuda:12.6.3-cudnn-runtime-ubuntu22.04
@@ -21,18 +21,16 @@ ENV PYTHONUNBUFFERED=1
 ENV PATH="/opt/venv/bin:$PATH"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 ca-certificates ffmpeg && \
+    python3 ca-certificates ffmpeg libsndfile1 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /opt/venv /opt/venv
 
-ARG WHISPER_MODELS=large-v2
-ENV WHISPER_MODELS=${WHISPER_MODELS}
-COPY builder/fetch_models.py /fetch_models.py
-RUN python /fetch_models.py && rm /fetch_models.py
+COPY builder/fetch_separation_models.py /fetch_separation_models.py
+RUN python /fetch_separation_models.py && rm /fetch_separation_models.py
 
 COPY src/rp_schema.py /rp_schema.py
-COPY src/predict.py /predict.py
-COPY src/rp_handler.py /rp_handler.py
+COPY src/separate.py /separate.py
+COPY src/separate_handler.py /rp_handler.py
 
 CMD ["python", "-u", "/rp_handler.py"]

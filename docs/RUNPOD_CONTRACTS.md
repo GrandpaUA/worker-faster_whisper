@@ -21,7 +21,7 @@ worker'ами. Він має бути первинним місцем для п�
   має трактувати це як гучну помилку.
 - Для довгих задач клієнт використовує async `/run` + `/status/{job_id}`.
 
-## `whisper_separate`: transcription
+## `whisper_asr`: transcription
 
 ### Input
 
@@ -99,7 +99,11 @@ prefetch'ить `large-v2`; інші моделі для експеримент�
 Тиха runtime дозагрузка непередбаченої моделі небажана, бо маскує cold-start
 проблему.
 
-## `whisper_separate`: source separation
+Якщо сюди помилково відправити `task: "separate"`, worker має повернути
+`{"error": ...}`. Це навмисно: неправильний endpoint у `.env` має ламатися
+голосно.
+
+## `separate_audio`: source separation
 
 ### Input
 
@@ -217,7 +221,9 @@ WAV contract: mono, 16-bit PCM, 22050 Hz.
 ## Що має покривати contract test suite
 
 - Handler import не стартує RunPod server.
+- `separate_audio` import не вантажить Whisper `predict`.
 - Transcription без `model` використовує default `large-v2`.
+- `whisper_asr` голосно відкидає `task: "separate"`.
 - Input validation відкидає одночасні `audio` і `audio_base64`.
 - Transcription output має `segments`, `detected_language`, `model`, `device`.
 - Separation output для `return_stems=false` не містить base64 stem'ів.

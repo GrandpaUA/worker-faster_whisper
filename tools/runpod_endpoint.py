@@ -3,6 +3,8 @@
 Commands:
   python tools/runpod_endpoint.py gpus
   python tools/runpod_endpoint.py create --worker styletts2_ua --image drgrandpa/styletts2-ua:sha-abcdef1
+  python tools/runpod_endpoint.py create --worker whisper_asr --image drgrandpa/whisper-worker:sha-abcdef1
+  python tools/runpod_endpoint.py create --worker separate_audio --image drgrandpa/separate-worker:sha-abcdef1
   python tools/runpod_endpoint.py info <endpoint_id>
   python tools/runpod_endpoint.py run-styletts2 <endpoint_id> [--text "..."] [--voice "..."] [--out file.wav]
   python tools/runpod_endpoint.py fetch-styletts2 <endpoint_id> <job_id> [out.wav]
@@ -49,10 +51,16 @@ class WorkerSpec:
 
 
 WORKERS = {
-    "whisper_separate": WorkerSpec(
+    "whisper_asr": WorkerSpec(
         image_repo="drgrandpa/whisper-worker",
-        endpoint_name="whisper-separate",
-        template_name="whisper-separate-tpl",
+        endpoint_name="whisper-asr",
+        template_name="whisper-asr-tpl",
+        disk_gb=30,
+    ),
+    "separate_audio": WorkerSpec(
+        image_repo="drgrandpa/separate-worker",
+        endpoint_name="separate-audio",
+        template_name="separate-audio-tpl",
         disk_gb=30,
     ),
     "styletts2_ua": WorkerSpec(

@@ -2,9 +2,10 @@
 
 ## YouTube Voice Translator workers
 
-Цей репозиторій зараз збирає два RunPod Serverless worker'и:
+Цей репозиторій збирає три RunPod Serverless worker'и:
 
-- `drgrandpa/whisper-worker` - Faster Whisper transcription + Demucs/Roformer source separation.
+- `drgrandpa/whisper-worker` - Faster Whisper transcription only.
+- `drgrandpa/separate-worker` - Demucs/Roformer source separation.
 - `drgrandpa/styletts2-ua` - Ukrainian StyleTTS2/Patriotyk TTS.
 
 Актуальна документація проєкту:
@@ -17,6 +18,8 @@ Deploy/test tool для RunPod endpoint'ів:
 
 ```bash
 python tools/runpod_endpoint.py create --worker styletts2_ua --image drgrandpa/styletts2-ua:sha-e706b9e
+python tools/runpod_endpoint.py create --worker whisper_asr --image drgrandpa/whisper-worker:sha-e706b9e
+python tools/runpod_endpoint.py create --worker separate_audio --image drgrandpa/separate-worker:sha-e706b9e
 python tools/runpod_endpoint.py info <endpoint_id>
 ```
 
@@ -108,9 +111,10 @@ producing an output like this:
 }
 ```
 
-## Source separation (`task: "separate"`)
+## Source separation (`drgrandpa/separate-worker`)
 
-GPU separation of a song into vocals and instrumental. Besides Demucs
+GPU separation of a song into vocals and instrumental. This is a separate image
+and endpoint from Whisper transcription. Besides Demucs
 (`engine: "demucs"`, default, `htdemucs_ft`), the worker supports
 `engine: "roformer"` — [audio-separator](https://github.com/nomadkaraoke/python-audio-separator)
 running a BS-Roformer model. Default roformer model is

@@ -7,6 +7,7 @@ on:
     paths:
       - ".github/workflows/build-workers.yml"
       - "Dockerfile"
+      - "Dockerfile.separate"
       - "builder/**"
       - "src/**"
       - "styletts2/**"
@@ -18,7 +19,8 @@ on:
         default: all
         options:
           - all
-          - whisper_separate
+          - whisper_asr
+          - separate_audio
           - styletts2_ua
       nocache:
         description: "Build without cached layers"
@@ -43,11 +45,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - worker: whisper_separate
+          - worker: whisper_asr
             image: drgrandpa/whisper-worker
             context: .
             dockerfile: Dockerfile
-            cache_scope: whisper-separate
+            cache_scope: whisper-asr
+          - worker: separate_audio
+            image: drgrandpa/separate-worker
+            context: .
+            dockerfile: Dockerfile.separate
+            cache_scope: separate-audio
           - worker: styletts2_ua
             image: drgrandpa/styletts2-ua
             context: styletts2
@@ -79,8 +86,8 @@ jobs:
             type=raw,value=latest
             type=ref,event=tag
 
-      - name: Build and push whisper_separate
-        if: ${{ matrix.worker == 'whisper_separate' && (github.event_name != 'workflow_dispatch' || inputs.worker == 'all' || inputs.worker == matrix.worker) }}
+      - name: Build and push whisper_asr
+        if: ${{ matrix.worker == 'whisper_asr' && (github.event_name != 'workflow_dispatch' || inputs.worker == 'all' || inputs.worker == matrix.worker) }}
         uses: docker/build-push-action@v5
         with:
           context: ${{ matrix.context }}
@@ -89,6 +96,18 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             WHISPER_MODELS=${{ github.event_name == 'workflow_dispatch' && inputs.whisper_models || 'large-v2' }}
+          no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.nocache }}
+          cache-from: type=gha,scope=${{ matrix.cache_scope }}
+          cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max
+
+      - name: Build and push separate_audio
+        if: ${{ matrix.worker == 'separate_audio' && (github.event_name != 'workflow_dispatch' || inputs.worker == 'all' || inputs.worker == matrix.worker) }}
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
           no-cache: ${{ github.event_name == 'workflow_dispatch' && inputs.nocache }}
           cache-from: type=gha,scope=${{ matrix.cache_scope }}
           cache-to: type=gha,scope=${{ matrix.cache_scope }},mode=max

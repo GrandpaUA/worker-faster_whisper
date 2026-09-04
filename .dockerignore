@@ -2,3 +2,11 @@
 .github
 README.md
 LICENSE
+docs
+tests
+tools
+styletts2
+__pycache__
+**/__pycache__
+*.wav
+DEMUCS_TEST_REPORT.md
