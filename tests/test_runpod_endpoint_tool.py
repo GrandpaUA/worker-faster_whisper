@@ -81,6 +81,61 @@ class RunpodEndpointToolTests(unittest.TestCase):
         ):
             tool.main(["create", "--worker", "styletts2_ua", "--image", "drgrandpa/styletts2-ua:latest"])
 
+    def test_info_uses_runpod_rest_v2_endpoint_lookup(self):
+        tool = load_tool()
+
+        client = mock.Mock()
+        client.http.return_value = {"id": "endpoint-1", "image": "drgrandpa/whisper-worker:sha-8968539"}
+
+        with mock.patch("sys.stdout"):
+            tool.cmd_info(client, "endpoint-1")
+
+        client.http.assert_called_once_with(
+            "https://api.runpod.io/v2/serverless/endpoint-1",
+            method="GET",
+            exit_on_error=False,
+        )
+        client.graphql.assert_not_called()
+
+    def test_info_falls_back_to_graphql_endpoint_list_on_rest_404(self):
+        tool = load_tool()
+
+        client = mock.Mock()
+        client.http.side_effect = tool.RunpodHTTPError(404, "https://api.runpod.io/v2/serverless/endpoint-1", "{}")
+        client.graphql.return_value = {
+            "myself": {
+                "endpoints": [
+                    {
+                        "id": "endpoint-1",
+                        "name": "legacy",
+                        "gpuIds": "AMPERE_16",
+                        "templateId": "template-1",
+                    }
+                ]
+            }
+        }
+
+        with mock.patch("sys.stdout"):
+            tool.cmd_info(client, "endpoint-1")
+
+        client.graphql.assert_called_once()
+
+    def test_info_reports_visible_endpoints_when_id_is_not_found(self):
+        tool = load_tool()
+
+        client = mock.Mock()
+        client.http.side_effect = tool.RunpodHTTPError(404, "https://api.runpod.io/v2/serverless/missing", "{}")
+        client.graphql.return_value = {
+            "myself": {
+                "endpoints": [
+                    {"id": "endpoint-1", "name": "visible"},
+                ]
+            }
+        }
+
+        with self.assertRaisesRegex(SystemExit, "endpoint-1 \\(visible\\)"):
+            tool.cmd_info(client, "missing")
+
 
 if __name__ == "__main__":
     unittest.main()

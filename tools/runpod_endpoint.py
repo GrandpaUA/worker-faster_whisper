@@ -34,6 +34,7 @@ import wave
 
 ROOT = Path(__file__).resolve().parents[1]
 GRAPHQL = "https://api.runpod.io/graphql"
+MANAGEMENT_REST = "https://api.runpod.io/v2"
 REST = "https://api.runpod.ai"
 HOURLY_USD = 0.58  # RTX 4000 Ada
 
@@ -48,6 +49,14 @@ class WorkerSpec:
     endpoint_name: str
     template_name: str
     disk_gb: int
+
+
+class RunpodHTTPError(RuntimeError):
+    def __init__(self, code: int, url: str, body: str):
+        super().__init__(f"HTTP {code} for {url}:\n{body[:2000]}")
+        self.code = code
+        self.url = url
+        self.body = body
 
 
 WORKERS = {
@@ -138,7 +147,7 @@ class RunpodClient:
     def __init__(self, api_key: str):
         self.api_key = api_key
 
-    def http(self, url: str, payload=None, method: str | None = None):
+    def http(self, url: str, payload=None, method: str | None = None, exit_on_error: bool = True):
         # Cloudflare RunPod банить Python-urllib UA (error 1010) - даємо нейтральний.
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -152,7 +161,10 @@ class RunpodClient:
                 return json.load(response)
         except urllib.error.HTTPError as exc:
             body = exc.read().decode(errors="replace")
-            raise SystemExit(f"HTTP {exc.code} for {url}:\n{body[:2000]}") from exc
+            error = RunpodHTTPError(exc.code, url, body)
+            if exit_on_error:
+                raise SystemExit(str(error)) from exc
+            raise error from exc
 
     def graphql(self, query: str):
         result = self.http(GRAPHQL, {"query": query})
@@ -218,14 +230,53 @@ def cmd_create(client: RunpodClient, args: argparse.Namespace) -> None:
 
 
 def cmd_info(client: RunpodClient, endpoint_id: str) -> None:
-    data = client.graphql(f"""
-    query {{
-        endpoint(id: {gql_str(endpoint_id)}) {{
-            id name gpuIds locations workersMin workersMax idleTimeout
-            template {{ id name imageName }}
-        }}
-    }}""")
+    try:
+        data = client.http(f"{MANAGEMENT_REST}/serverless/{endpoint_id}", method="GET", exit_on_error=False)
+    except RunpodHTTPError as exc:
+        if exc.code != 404:
+            raise SystemExit(str(exc)) from exc
+        data = graphql_endpoint_info(client, endpoint_id)
     print(json.dumps(data, indent=2, ensure_ascii=False))
+
+
+def graphql_endpoint_info(client: RunpodClient, endpoint_id: str) -> dict:
+    data = client.graphql("""
+    query {
+        myself {
+            endpoints {
+                id
+                name
+                gpuIds
+                idleTimeout
+                locations
+                networkVolumeId
+                scalerType
+                scalerValue
+                templateId
+                workersMax
+                workersMin
+                pods {
+                    desiredStatus
+                }
+            }
+        }
+    }""")
+    endpoints = data.get("myself", {}).get("endpoints") or []
+    for endpoint in endpoints:
+        if endpoint.get("id") == endpoint_id:
+            return {"source": "graphql_myself_endpoints", **endpoint}
+
+    visible = ", ".join(
+        f"{endpoint.get('id')} ({endpoint.get('name')})"
+        for endpoint in endpoints
+        if endpoint.get("id")
+    )
+    if not visible:
+        visible = "none"
+    raise SystemExit(
+        f"endpoint {endpoint_id!r} was not found via REST v2 or GraphQL myself.endpoints. "
+        f"Endpoints visible to this API key: {visible}"
+    )
 
 
 def check_wav(path: str) -> bool:

@@ -77,6 +77,12 @@ python tools/runpod_endpoint.py run-styletts2 <endpoint_id> --out styletts2_test
 `create` відкидає `latest`, untagged image і tag'и не виду `sha-*`. Це навмисно:
 production endpoint має бути прив'язаний до конкретного build artifact.
 
+`info` читає endpoint через RunPod management REST API v2
+`GET https://api.runpod.io/v2/serverless/{id}`. Старий прямий GraphQL
+`endpoint(id: ...)` більше не використовувати: актуальний GraphQL шлях для
+списку endpoint'ів іде через `myself { endpoints { ... } }`, а REST v2 одразу
+повертає endpoint з image, workers, gpu і scaling.
+
 ## Whisper model prefetch
 
 Звичайний build `drgrandpa/whisper-worker` prefetch'ить `large-v2`, бо це
